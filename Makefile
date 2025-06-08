@@ -13,7 +13,7 @@ INCLUDES = -I/usr/include/ -Isrc/ -Iexternal/
 
 DEFINES = -D_LOG_LEVEL=$(LOG_LEVEL) -DLOG_COLOR
 
-CXXFLAGS = -O3 $(DEFINES) $(INCLUDES) -Wall -std=c++20
+CXXFLAGS = -O3 $(DEFINES) $(INCLUDES) -Wall -std=c++17
 
 LDFLAGS =
 
