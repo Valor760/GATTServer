@@ -31,7 +31,7 @@ uint16_t toUINT16(DataBuffer& data)
 {
 	checkSize(data, sizeof(uint16_t));
 
-	uint16_t ret = data[1] + (data[0] << 8);
+	uint16_t ret = data[0] + (data[1] << 8);
 
 	adjustBuff(data, sizeof(uint16_t));
 	return ret;

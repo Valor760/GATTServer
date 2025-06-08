@@ -190,7 +190,7 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 				return handleReadByTypeReq(data);
 	
 			default:
-				LOG_ERROR("Unknown opcode received: %02X", opcode);
+				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
 				throw AttErrorCodes::RequestNotSupported;
 		}
 	}
