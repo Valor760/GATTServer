@@ -1,10 +1,12 @@
 #include "att.h"
 #include "utils/log.h"
+#include "advertising.h"
 
 int main()
 {
 	try
 	{
+		Advertising adv;
 		ATTServer srv;
 		srv.run();
 	}
