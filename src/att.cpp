@@ -175,7 +175,7 @@ void ATTServer::handleAttConnection(int clientFD, struct sockaddr_l2 l2addr)
 		}
 	}
 
-	LOG_DEBUG("Closing ATT connection with %pM", l2addr.l2_bdaddr.b);
+	LOG_DEBUG("Closing ATT connection with %s", addrToStr(l2addr.l2_bdaddr).c_str());
 	close(clientFD);
 }
 
@@ -257,6 +257,5 @@ std::vector<uint8_t> ATTServer::handleReadByTypeReq(BetterBuffer& buf)
 
 ATTServer::~ATTServer()
 {
-	close(bredrFD);
-	close(bleFD);
+	LOG_DEBUG("ATT Server exiting...");
 }

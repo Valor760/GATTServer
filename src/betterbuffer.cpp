@@ -1,5 +1,5 @@
 #include "betterbuffer.h"
-#include "log.h"
+#include "utils/log.h"
 
 #include <algorithm>
 
