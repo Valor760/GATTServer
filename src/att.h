@@ -1,4 +1,5 @@
 #pragma once
+#include "types.h"
 #include "betterbuffer.h"
 #include "gattserver.h"
 #include "utils/socket.h"
@@ -34,10 +35,10 @@ class ATTServer
 
 	void acceptAttConnection(int serverFD);
 	void handleAttConnection(int clientFD, struct sockaddr_l2 l2addr);
-	std::vector<uint8_t> processCommands(const std::vector<uint8_t>& data);
+	DataBuffer processCommands(DataBuffer& data);
 
 	// Remote request handling
-	std::vector<uint8_t> handleReadByTypeReq(BetterBuffer& buf);
+	DataBuffer handleReadByTypeReq(DataBuffer& data);
 
 public:
 	ATTServer();

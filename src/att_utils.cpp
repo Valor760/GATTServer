@@ -1,4 +1,41 @@
 #include "att_utils.h"
+#include "utils/log.h"
+
+#include <algorithm>
+
+static void checkSize(DataBuffer& data, size_t size)
+{
+	if(data.size() < size)
+	{
+		LOG_ERROR("Wanted %lu bytes, but available only %lu", size, data.size());
+		throw AttErrorCodes::InvalidAttributeValueLength;
+	}
+}
+
+static void adjustBuff(DataBuffer& data, size_t size)
+{
+	data.erase(data.begin(), data.begin() + size);
+}
+
+uint8_t toUINT8(DataBuffer& data)
+{
+	checkSize(data, sizeof(uint8_t));
+
+	uint8_t ret = data[0];
+
+	adjustBuff(data, sizeof(uint8_t));
+	return ret;
+}
+
+uint16_t toUINT16(DataBuffer& data)
+{
+	checkSize(data, sizeof(uint16_t));
+
+	uint16_t ret = data[1] + (data[0] << 8);
+
+	adjustBuff(data, sizeof(uint16_t));
+	return ret;
+}
 
 std::vector<uint8_t> createErrorResponse(const AttError& error)
 {

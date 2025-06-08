@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <utility>
+#include <vector>
 
 #define ATT_ERROR_RSP 0x01
 #define ATT_READ_BY_TYPE_REQ 0x08
@@ -44,3 +45,5 @@ public:
 };
 
 using HandleError = std::pair<AttErrorCodes, uint16_t>;
+
+using DataBuffer = std::vector<uint8_t>;

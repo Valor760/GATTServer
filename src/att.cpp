@@ -1,7 +1,6 @@
 #include "att.h"
 #include "utils/log.h"
 #include "utils/utils.h"
-#include "betterbuffer.h"
 #include "types.h"
 #include "att_utils.h"
 
@@ -179,18 +178,15 @@ void ATTServer::handleAttConnection(int clientFD, struct sockaddr_l2 l2addr)
 	close(clientFD);
 }
 
-std::vector<uint8_t> ATTServer::processCommands(const std::vector<uint8_t>& data)
+DataBuffer ATTServer::processCommands(DataBuffer& data)
 {
-	BetterBuffer buf(data);
-
-	uint8_t opcode = buf.get<uint8_t>();
-
 	try
 	{
+		uint8_t opcode = toUINT8(data);
 		switch(opcode)
 		{
 			case ATT_READ_BY_TYPE_REQ:
-				return handleReadByTypeReq(buf);
+				return handleReadByTypeReq(data);
 	
 			default:
 				LOG_ERROR("Unknown opcode received: %02X", opcode);
@@ -207,13 +203,13 @@ std::vector<uint8_t> ATTServer::processCommands(const std::vector<uint8_t>& data
 	}
 }
 
-std::vector<uint8_t> ATTServer::handleReadByTypeReq(BetterBuffer& buf)
+DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 {
 	LOG_DEBUG("Read by Type request received");
 
-	uint16_t startHandle = buf.get<uint16_t>();
-	uint16_t endHandle = buf.get<uint16_t>();
-	std::vector<uint8_t> attType;
+	uint16_t startHandle = toUINT16(data);
+	uint16_t endHandle = toUINT16(data);
+	DataBuffer attType;
 
 	{
 		const size_t remaining = buf.bytesLeft();
