@@ -23,44 +23,44 @@
 
 void GATTServer::createTestServer()
 {
-	handle = 0x0001;
-	{
-		uint8_t tmp[] = {0x57, 0x9c, 0xab, 0xf3, 0xbf, 0xe1, 0x4c, 0x27, 0x84, 0xc1, 0x49, 0x55, 0xb6, 0xd5, 0xa1, 0x02};
-		memcpy(uuid, tmp, sizeof(uuid));
-	}
+	// handle = 0x0001;
+	// {
+	// 	uint8_t tmp[] = {0x57, 0x9c, 0xab, 0xf3, 0xbf, 0xe1, 0x4c, 0x27, 0x84, 0xc1, 0x49, 0x55, 0xb6, 0xd5, 0xa1, 0x02};
+	// 	memcpy(uuid, tmp, sizeof(uuid));
+	// }
 
-	GATTService svc;
-	svc.handle = 0x0002;
-	{
-		// TODO: By protocol it is allowed to set UUID as uint16, but maybe for ease we can deprecate it and allow only uuid128?
-		// OR at least convert it to uuid128
-		uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x0F};
-		memcpy(svc.uuid, tmp, sizeof(svc.uuid));
-	}
-	svc.primary = true;
+	// GATTService svc;
+	// svc.handle = 0x0002;
+	// {
+	// 	// TODO: By protocol it is allowed to set UUID as uint16, but maybe for ease we can deprecate it and allow only uuid128?
+	// 	// OR at least convert it to uuid128
+	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x0F};
+	// 	memcpy(svc.uuid, tmp, sizeof(svc.uuid));
+	// }
+	// svc.primary = true;
 
-	{
-		GATTCharacteristic charstic;
-		charstic.handle = 0x0011;
-		uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x20};
-		memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
-		charstic.value = {'H', 'e', 'l', 'l', 'o'};
-		charstic.read = true;
-		charstic.notify = true;
-		svc.characteristics.push_back(charstic);
-	}
+	// {
+	// 	GATTCharacteristic charstic;
+	// 	charstic.handle = 0x0011;
+	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x20};
+	// 	memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
+	// 	charstic.value = {'H', 'e', 'l', 'l', 'o'};
+	// 	charstic.read = true;
+	// 	charstic.notify = true;
+	// 	svc.characteristics.push_back(charstic);
+	// }
 
-	{
-		GATTCharacteristic charstic;
-		charstic.handle = 0x0012;
-		uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x21};
-		memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
-		charstic.value = {'W', 'o', 'r', 'l', 'd'};
-		charstic.write = true;
-		charstic.read = true;
-		charstic.indicate = true;
-		svc.characteristics.push_back(charstic);
-	}
+	// {
+	// 	GATTCharacteristic charstic;
+	// 	charstic.handle = 0x0012;
+	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x21};
+	// 	memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
+	// 	charstic.value = {'W', 'o', 'r', 'l', 'd'};
+	// 	charstic.write = true;
+	// 	charstic.read = true;
+	// 	charstic.indicate = true;
+	// 	svc.characteristics.push_back(charstic);
+	// }
 
-	services.push_back(svc);
+	// services.push_back(svc);
 }
