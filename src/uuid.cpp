@@ -71,3 +71,14 @@ DataBuffer UUID::getUUID128() const
 
 	return uuid;
 }
+
+namespace uuids
+{
+	UUID DatabaseHash(0x2B2A);
+	UUID ServiceChanged(0x2A05);
+
+	UUID PrimaryService(0x2800);
+	UUID SecondaryService(0x2801);
+	UUID Include(0x2802);
+	UUID Characteristic(0x2803);
+} /* namespace uuids */

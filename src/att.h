@@ -28,7 +28,7 @@ public:
 
 class ATTServer
 {
-	GATTServer gattServer;
+	GATTServer gatt;
 	ATTBind bredrHandle;
 	ATTBind bleHandle;
 
@@ -38,6 +38,7 @@ class ATTServer
 
 	// Remote request handling
 	DataBuffer handleReadByTypeReq(DataBuffer& data);
+	DataBuffer handleReadByGroupReq(DataBuffer& data);
 
 public:
 	ATTServer();

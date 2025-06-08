@@ -27,3 +27,14 @@ public:
 	uint16_t getUUID16() const;
 	DataBuffer getUUID128() const;
 };
+
+namespace uuids
+{
+	extern UUID DatabaseHash;
+	extern UUID ServiceChanged;
+
+	extern UUID PrimaryService;
+	extern UUID SecondaryService;
+	extern UUID Include;
+	extern UUID Characteristic;
+} /* namespace uuids */

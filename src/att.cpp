@@ -184,11 +184,16 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 	uint8_t opcode = toUINT8(data);
 	try
 	{
+		LOG_DEBUG("Processing command 0x%02X", opcode);
+
 		switch(opcode)
 		{
 			case ATT_READ_BY_TYPE_REQ:
 				return handleReadByTypeReq(data);
-	
+
+			case ATT_READ_BY_GROUP_TYPE_REQ:
+				return handleReadByGroupReq(data);
+
 			default:
 				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
 				throw AttErrorCodes::RequestNotSupported;
@@ -255,9 +260,10 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 	// Seems like hashing and service changed attributes are needed for GATT servers that expect attribute tree to be
 	// changed dynamically by the user.
 	// So, TODO: this in the future
-
-	// TODO: retrieve this info from gatt server
-	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+	if(attType == uuids::DatabaseHash || attType == uuids::ServiceChanged)
+	{
+		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+	}
 
 	// FIXME and TODO: Do this dynamically and move creation into separate function?
 	// TODO: Check that handle is within range
@@ -277,6 +283,59 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 	response.insert(response.end(), uuid, uuid + sizeof(uuid));
 
 	return response;
+}
+
+DataBuffer ATTServer::handleReadByGroupReq(DataBuffer& data)
+{
+	LOG_DEBUG("Read by Group request received");
+
+	uint16_t startHandle = toUINT16(data);
+	uint16_t endHandle = toUINT16(data);
+	UUID attType;
+
+	const size_t remaining = data.size();
+	switch(remaining)
+	{
+		case 2:
+			attType = UUID(toUINT16(data));
+			break;
+
+		case 16:
+			attType = UUID(toByteSeq(data, 16));
+			break;
+
+		default:
+			LOG_ERROR("Wrong attribute type length - %ld", remaining);
+			throw AttErrorCodes::InvalidAttributeValueLength;
+	}
+
+	LOG_DEBUG("    Start Handle: 0x%04X", startHandle);
+	LOG_DEBUG("    End Handle: 0x%04X", endHandle);
+
+	if(attType.isUUID16())
+	{
+		LOG_DEBUG("    Attribute type: 0x%04X", attType.getUUID16());
+	}
+	else
+	{
+		auto uuid128 = attType.getUUID128();
+		HEXDUMP_DEBUG("Attribute type", uuid128.data(), uuid128.size());
+	}
+
+	if(startHandle > endHandle || startHandle == 0x0000)
+	{
+		LOG_ERROR("Wrong handle range provided!");
+		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
+	}
+
+	// TODO: We won't support Secondary service for now (all services are primary)
+	if(attType == uuids::SecondaryService)
+	{
+		throw HandleError(AttErrorCodes::UnsupportedGroupType, startHandle);
+	}
+
+	// TODO:
+	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 }
 
 ATTServer::~ATTServer()
