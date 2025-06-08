@@ -33,6 +33,11 @@ UUID::UUID(DataBuffer uuid128)
 	uuid = uuid128;
 }
 
+bool UUID::operator==(const UUID& other) const
+{
+	return type == other.type && uuid == other.uuid;
+}
+
 bool UUID::isUUID16() const
 {
 	return type == UUIDType::UUID16;

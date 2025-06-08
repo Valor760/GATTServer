@@ -247,6 +247,18 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
 	}
 
+	// The first attributes BlueZ is asking are:
+	// --- Database Hash 0x2B2A
+	// --- Service Changed 0x2A05
+	// As per Bluetooth GATT documentation:
+	// "If the Database Hash and Service Changed characteristics are both present on the server, then the server shall support the Robust Caching feature."
+	// Seems like hashing and service changed attributes are needed for GATT servers that expect attribute tree to be
+	// changed dynamically by the user.
+	// So, TODO: this in the future
+
+	// TODO: retrieve this info from gatt server
+	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+
 	// FIXME and TODO: Do this dynamically and move creation into separate function?
 	// TODO: Check that handle is within range
 	uint8_t uuid[16];

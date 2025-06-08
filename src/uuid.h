@@ -19,6 +19,8 @@ public:
 	UUID(uint16_t uuid16);
 	UUID(DataBuffer uuid128);
 
+	bool operator==(const UUID& other) const;
+
 	bool isUUID16() const;
 	bool isUUID128() const;
 
