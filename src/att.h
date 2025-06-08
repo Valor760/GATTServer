@@ -1,5 +1,6 @@
 #pragma once
 #include "betterbuffer.h"
+#include "gattserver.h"
 
 #include <stdint.h>
 
@@ -14,6 +15,7 @@
 
 class ATTServer
 {
+	GATTServer gattServer;
 	int bredrFD;
 	int bleFD;
 

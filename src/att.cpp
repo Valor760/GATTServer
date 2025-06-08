@@ -109,6 +109,8 @@ ATTServer::ATTServer()
 	}
 
 	LOG_DEBUG("Bound ATT server");
+
+	gattServer.createTestServer(); // TODO: Remove
 }
 
 void ATTServer::finish()
@@ -240,11 +242,27 @@ std::vector<uint8_t> ATTServer::handleReadByTypeReq(BetterBuffer& buf)
 
 	uint16_t startHandle = buf.get<uint16_t>();
 	uint16_t endHandle = buf.get<uint16_t>();
-	uint16_t dbHash = buf.get<uint16_t>(); // TODO: Figure out for what this is needed
+	std::vector<uint8_t> attType;
+
+	{
+		const size_t remaining = buf.bytesLeft();
+		if(remaining != 2 && remaining != 16)
+		{
+			LOG_ERROR("Wrong attribute type length - %ld", remaining);
+			throw AttErrorCodes::InvalidAttributeValueLength;
+		}
+		attType = buf.getBytes(remaining);
+	}
 
 	LOG_DEBUG("    Start Handle: 0x%04X", startHandle);
 	LOG_DEBUG("    End Handle: 0x%04X", endHandle);
-	LOG_DEBUG("    Database Hash: 0x%04X", dbHash);
+	HEXDUMP_DEBUG("Attribute type", attType.data(), attType.size());
+
+	if(startHandle > endHandle || startHandle == 0x0000)
+	{
+		LOG_ERROR("Wrong handle range provided!");
+		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
+	}
 
 	// FIXME and TODO: Do this dynamically and move creation into separate function?
 	// TODO: Check that handle is within range
