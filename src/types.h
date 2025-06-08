@@ -24,7 +24,7 @@ enum class AttErrorCodes : uint8_t
 	AttributeNotLong             = 0x0B, // The attribute cannot be read using the ATT_READ_BLOB_REQ PDU.
 	EncryptionKeyTooShort        = 0x0C, // The Encryption Key Size used for encrypting this link is too short.
 	InvalidAttributeValueLength  = 0x0D, // The attribute value length is invalid for the operation.
-	UnlikelyError                = 0x0E, // The attribute request that was requested has encountered an error that was unlikely, and therefore could not be completed as requested.
+	UnlikelyError                = 0x0E, // The attribute request that was requested has encountered an error that was unlikely, and therefore could not be completed as requested. (Internal error)
 	InsufficientEncryption       = 0x0F, // The attribute requires encryption before it can be read or written.
 	UnsupportedGroupType         = 0x10, // The attribute type is not a supported grouping attribute as defined by a higher layer specification.
 	InsufficientResources        = 0x11, // Insufficient Resources to complete the request.
@@ -45,5 +45,7 @@ public:
 };
 
 using HandleError = std::pair<AttErrorCodes, uint16_t>;
+// TODO: How to make it pretty?
+#define InternalError HandleError(AttErrorCodes::UnlikelyError, 0x0000)
 
 using DataBuffer = std::vector<uint8_t>;

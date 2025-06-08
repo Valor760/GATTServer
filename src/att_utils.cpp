@@ -37,6 +37,17 @@ uint16_t toUINT16(DataBuffer& data)
 	return ret;
 }
 
+DataBuffer toByteSeq(DataBuffer& data, size_t size)
+{
+	checkSize(data, size);
+
+	DataBuffer buf;
+	buf.insert(buf.begin(), data.begin(), data.begin() + size);
+
+	adjustBuff(data, size);
+	return buf;
+}
+
 std::vector<uint8_t> createErrorResponse(const AttError& error)
 {
 	std::vector<uint8_t> buf;

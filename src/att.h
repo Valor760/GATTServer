@@ -1,6 +1,5 @@
 #pragma once
 #include "types.h"
-#include "betterbuffer.h"
 #include "gattserver.h"
 #include "utils/socket.h"
 

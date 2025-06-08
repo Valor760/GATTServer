@@ -3,6 +3,7 @@
 #include "utils/utils.h"
 #include "types.h"
 #include "att_utils.h"
+#include "uuid.h"
 
 #include <sys/socket.h>
 #include <unistd.h>
@@ -180,9 +181,9 @@ void ATTServer::handleAttConnection(int clientFD, struct sockaddr_l2 l2addr)
 
 DataBuffer ATTServer::processCommands(DataBuffer& data)
 {
+	uint8_t opcode = toUINT8(data);
 	try
 	{
-		uint8_t opcode = toUINT8(data);
 		switch(opcode)
 		{
 			case ATT_READ_BY_TYPE_REQ:
@@ -209,21 +210,36 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 
 	uint16_t startHandle = toUINT16(data);
 	uint16_t endHandle = toUINT16(data);
-	DataBuffer attType;
+	UUID attType;
 
+	const size_t remaining = data.size();
+	switch(remaining)
 	{
-		const size_t remaining = buf.bytesLeft();
-		if(remaining != 2 && remaining != 16)
-		{
+		case 2:
+			attType = UUID(toUINT16(data));
+			break;
+
+		case 16:
+			attType = UUID(toByteSeq(data, 16));
+			break;
+
+		default:
 			LOG_ERROR("Wrong attribute type length - %ld", remaining);
 			throw AttErrorCodes::InvalidAttributeValueLength;
-		}
-		attType = buf.getBytes(remaining);
 	}
 
 	LOG_DEBUG("    Start Handle: 0x%04X", startHandle);
 	LOG_DEBUG("    End Handle: 0x%04X", endHandle);
-	HEXDUMP_DEBUG("Attribute type", attType.data(), attType.size());
+
+	if(attType.isUUID16())
+	{
+		LOG_DEBUG("    Attribute type: 0x%04X", attType.getUUID16());
+	}
+	else
+	{
+		auto uuid128 = attType.getUUID128();
+		HEXDUMP_DEBUG("Attribute type", uuid128.data(), uuid128.size());
+	}
 
 	if(startHandle > endHandle || startHandle == 0x0000)
 	{
