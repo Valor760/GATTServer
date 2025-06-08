@@ -139,8 +139,8 @@ Advertising::Advertising()
 		params->instance = 1,
 		params->adv_data_len = 4,
 		params->scan_rsp_len = 0,
-		params->data[0] = 0x03;
-		params->data[1] = 0x19;
+		params->data[0] = 0x03; /* len of next attrs */
+		params->data[1] = 0x19; /* BT_AD_GAP_APPEARANCE */
 		params->data[2] = 0x00;
 		params->data[3] = 0x01;
 
