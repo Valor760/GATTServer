@@ -260,7 +260,7 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 	// Seems like hashing and service changed attributes are needed for GATT servers that expect attribute tree to be
 	// changed dynamically by the user.
 	// So, TODO: this in the future
-	if(attType == uuids::DatabaseHash || attType == uuids::ServiceChanged)
+	if(attType == uuids::DatabaseHash || attType == uuids::ServiceChanged || attType == uuids::Include)
 	{
 		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 	}
@@ -328,14 +328,27 @@ DataBuffer ATTServer::handleReadByGroupReq(DataBuffer& data)
 		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
 	}
 
+	DataBuffer rsp;
+	rsp.push_back(ATT_READ_BY_GROUP_TYPE_RSP);
+	
 	// TODO: We won't support Secondary service for now (all services are primary)
 	if(attType == uuids::SecondaryService)
 	{
 		throw HandleError(AttErrorCodes::UnsupportedGroupType, startHandle);
 	}
+	else if(attType == uuids::PrimaryService)
+	{
+		LOG_DEBUG("Remote discovering Primary Services");
+		appendMsgData(rsp, gatt.readPrimaryServices(startHandle, endHandle), false);
+	}
+	else
+	{
+		// TODO
+		LOG_ERROR("Not yet supported!");
+		throw HandleError(AttErrorCodes::UnsupportedGroupType, startHandle);
+	}
 
-	// TODO:
-	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+	return rsp;
 }
 
 ATTServer::~ATTServer()

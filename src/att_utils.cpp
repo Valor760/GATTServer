@@ -1,5 +1,6 @@
 #include "att_utils.h"
 #include "utils/log.h"
+#include "uuid.h"
 
 #include <algorithm>
 
@@ -46,6 +47,40 @@ DataBuffer toByteSeq(DataBuffer& data, size_t size)
 
 	adjustBuff(data, size);
 	return buf;
+}
+
+template <>
+void appendMsgData(DataBuffer& buf, uint8_t data, bool)
+{
+	buf.push_back(data);
+}
+
+template <>
+void appendMsgData(DataBuffer& buf, uint16_t data, bool reverse)
+{
+	if(reverse)
+	{
+		buf.push_back(data & 0xFF);
+		buf.push_back(data >> 8);
+	}
+	else
+	{
+		buf.push_back(data >> 8);
+		buf.push_back(data & 0xFF);
+	}
+}
+
+template <>
+void appendMsgData(DataBuffer& buf, DataBuffer data, bool reverse)
+{
+	if(reverse)
+	{
+		buf.insert(buf.end(), data.rbegin(), data.rend());
+	}
+	else
+	{
+		buf.insert(buf.end(), data.begin(), data.end());
+	}
 }
 
 std::vector<uint8_t> createErrorResponse(const AttError& error)

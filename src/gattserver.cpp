@@ -1,5 +1,6 @@
 #include "gattserver.h"
 #include "utils/log.h"
+#include "att_utils.h"
 
 #include <cstring>
 #include <algorithm>
@@ -206,6 +207,40 @@ void GATTServer::createCharacteristic(uint16_t svcHandle, const Attribute& cfg, 
 	charstic.value = value;
 
 	it->second.addCharacteristic(charstic);
+}
+
+DataBuffer GATTServer::readPrimaryServices(uint16_t startHandle, uint16_t endHandle)
+{
+	std::lock_guard lg(serviceLock);
+	auto& svc = findServiceWithinRange(startHandle, endHandle);
+
+	LOG_DEBUG("Service found (hdl: %04X)", svc.handle);
+
+	// TODO: Let's return services 1 by 1. Not very effective, but easy! Otherwise need to calculate how much
+	// space each service takes
+	// NOTE: For services it is easy, since they don't have data field, but pain for characteristics!
+	DataBuffer buf;
+	appendMsgData(buf, (uint8_t) (4 + 16));
+	appendMsgData(buf, svc.handle);
+	appendMsgData(buf, svc.handle);
+	appendMsgData(buf, svc.type.getUUID128());
+
+	return buf;
+}
+
+GATTService& GATTServer::findServiceWithinRange(uint16_t startHandle, uint16_t endHandle)
+{
+	// std::lock_guard lg(serviceLock);
+	for(auto& [hdl, svc] : services)
+	{
+		if(hdl >= startHandle && hdl <= endHandle)
+		{
+			return svc;
+		}
+	}
+
+	LOG_DEBUG("Service within %04X and %04X handle range not found", startHandle, endHandle);
+	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 }
 
 void GATTService::addCharacteristic(GATTCharacteristic chstic)

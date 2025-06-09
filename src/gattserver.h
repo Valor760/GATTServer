@@ -46,6 +46,8 @@ class GATTServer
 	std::mutex serviceLock;
 	std::map<uint16_t, GATTService> services;
 
+	GATTService& findServiceWithinRange(uint16_t startHandle, uint16_t endHandle);
+
 public:
 	GATTServer() = default;
 
@@ -55,4 +57,6 @@ public:
 	// TODO: Currently only primary services are supportedm which are in the top level of profile
 	void createService(const Attribute& cfg, bool isPrimary = true);
 	void createCharacteristic(uint16_t svcHandle, const Attribute& cfg, const DataBuffer& value = {}, bool isDescriptor = false);
+
+	DataBuffer readPrimaryServices(uint16_t startHandle, uint16_t endHandle);
 };

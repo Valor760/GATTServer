@@ -50,25 +50,11 @@ bool UUID::isUUID128() const
 
 uint16_t UUID::getUUID16() const
 {
-	if(!isUUID16())
-	{
-		LOG_ERROR("UUID16 requested, but UUID is of %d type", static_cast<int>(type));
-		throw InternalError;
-	}
-
-	uint16_t ret = (uuid[2] << 8) + uuid[3];
-
-	return ret;
+	return (uuid[2] << 8) + uuid[3];
 }
 
 DataBuffer UUID::getUUID128() const
 {
-	if(!isUUID128())
-	{
-		LOG_ERROR("UUID128 requested, but UUID is of %d type", static_cast<int>(type));
-		throw InternalError;
-	}
-
 	return uuid;
 }
 

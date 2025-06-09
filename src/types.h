@@ -8,6 +8,10 @@
 #define ATT_READ_BY_TYPE_REQ 0x08
 #define ATT_READ_BY_TYPE_RSP 0x09
 #define ATT_READ_BY_GROUP_TYPE_REQ 0x10
+#define ATT_READ_BY_GROUP_TYPE_RSP 0x11
+
+// TODO: MTU is individual, but need to check if enough for us
+#define ATT_MTU 0xFF
 
 enum class AttErrorCodes : uint8_t
 {
