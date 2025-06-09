@@ -84,7 +84,7 @@ ATTServer::ATTServer()
 {
 	LOG_DEBUG("Start Bluetooth ATT server...");
 
-	// gattServer.createTestServer(); // TODO: Remove
+	gatt.createTestServer(); // TODO: Remove
 }
 
 void ATTServer::finish()

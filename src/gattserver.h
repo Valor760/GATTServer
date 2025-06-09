@@ -1,59 +1,58 @@
 #pragma once
 
+#include "types.h"
+#include "uuid.h"
+
 #include <vector>
 #include <cstdint>
+#include <mutex>
+#include <map>
 
-class GATTServer;
-class GATTService;
-
-class GATTCharacteristic
+class Attribute
 {
+public:
 	uint16_t handle;
-	uint8_t uuid[16]; // TODO: Use UUID class for this
+	UUID type;
 
-	bool enabled; // TODO: See the comment 'enabled' in GATTService. The same situation is here
-	bool isDescriptor;
 	bool read;
 	bool write;
-	bool writeNoResponse;
+	// bool writeNoResponse;
 	bool notify;
 	bool indicate;
 	bool authReads;
 	bool authWrites;
-
-	std::vector<uint8_t> value;
-
-public:
-	GATTCharacteristic() = default;
-
-	friend GATTService;
-	friend GATTServer;
 };
 
-class GATTService
+class GATTCharacteristic : public Attribute
 {
-	uint16_t handle;
-	uint8_t uuid[16]; // TODO: Use UUID class for this
+public:
+	bool isDescriptor;
+	DataBuffer value;
+};
 
-	bool enabled; // TODO: Even though XML has this field, I don't see it being changed in BSA (like if not enabled becomes enabled). Probably we can omit this and if in XML this is set as false - skip the whole service
-	bool primary;
-
-	std::vector<GATTCharacteristic> characteristics;
+class GATTService : public Attribute
+{
+	std::map<uint16_t, GATTCharacteristic> characteristics;
 
 public:
-	GATTService() = default;
+	bool primary;
 
-	friend GATTServer;
+	void addCharacteristic(GATTCharacteristic chstic);
+
 };
 
 class GATTServer
 {
-	uint8_t uuid[16]; // TODO: Use UUID class for this
-	uint16_t handle;
-	std::vector<GATTService> services;
+	std::mutex serviceLock;
+	std::map<uint16_t, GATTService> services;
 
 public:
 	GATTServer() = default;
 
 	void createTestServer(); // TODO: Remove and replace with proper set/get functions
+
+	// Attribute struct should be fully configured
+	// TODO: Currently only primary services are supportedm which are in the top level of profile
+	void createService(const Attribute& cfg, bool isPrimary = true);
+	void createCharacteristic(uint16_t svcHandle, const Attribute& cfg, const DataBuffer& value = {}, bool isDescriptor = false);
 };

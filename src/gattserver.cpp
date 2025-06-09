@@ -1,6 +1,11 @@
 #include "gattserver.h"
+#include "utils/log.h"
 
 #include <cstring>
+#include <algorithm>
+
+// FIXME: Mutex can't be in GATT Service otherwise no operator= available. Need to think
+static std::mutex charLock;
 
 /*
 <GATT_SERVER handle="0000" uuid="579cabf3-bfe1-4c27-84c1-4955b6d5a102">
@@ -23,6 +28,79 @@
 
 void GATTServer::createTestServer()
 {
+	// *******************************
+	// *         SERVICES            *
+	// *******************************
+	{
+		Attribute svc1 = {
+			.handle = 0x0010,
+			.type = 0xFFFF,
+			.read = true,
+			.write = false,
+			.notify = false,
+			.indicate = false,
+		};
+		createService(svc1);
+	}
+
+	{
+		Attribute svc2 = {
+			.handle = 0x0020,
+			.type = 0xFFFF,
+			.read = true,
+			.write = false,
+			.notify = false,
+			.indicate = false,
+		};
+		createService(svc2);
+	}
+
+	// *******************************
+	// *       CHARACTERISTICS       *
+	// *******************************
+
+	{
+		Attribute char1 = {
+			.handle = 0x0011,
+			.type = 0xFFFF,
+			.read = true,
+			.write = false,
+		};
+		createCharacteristic(0x0010, char1, {'H', 'e', 'l', 'l', 'o', '!'});
+	}
+
+	{
+		Attribute char2 = {
+			.handle = 0x0012,
+			.type = 0xFFFF,
+			.read = false,
+			.write = true,
+		};
+		createCharacteristic(0x0010, char2);
+	}
+
+	{
+		Attribute char3 = {
+			.handle = 0x0021,
+			.type = 0xFFFF,
+			.read = true,
+			.write = true,
+		};
+		createCharacteristic(0x0020, char3);
+	}
+
+	{
+		Attribute char4 = {
+			.handle = 0x0028,
+			.type = 0xFFFF,
+			.read = true,
+			.write = true,
+			.notify = true,
+		};
+		createCharacteristic(0x0020, char4);
+	}
+
+
 	// handle = 0x0001;
 	// {
 	// 	uint8_t tmp[] = {0x57, 0x9c, 0xab, 0xf3, 0xbf, 0xe1, 0x4c, 0x27, 0x84, 0xc1, 0x49, 0x55, 0xb6, 0xd5, 0xa1, 0x02};
@@ -63,4 +141,75 @@ void GATTServer::createTestServer()
 	// }
 
 	// services.push_back(svc);
+}
+
+void GATTServer::createService(const Attribute& cfg, bool isPrimary)
+{
+	if(cfg.handle == 0x0000)
+	{
+		LOG_ERROR("Invalid service handle %04X", cfg.handle);
+		throw -1;
+	}
+
+	{
+		auto it = services.find(cfg.handle);
+		if(it != services.end())
+		{
+			LOG_ERROR("Service with %04X handle already exists!", cfg.handle);
+			throw -1;
+		}
+	}
+	// TODO: Check no other attribute (service and characteristics) doesn't exist with the same handle
+	// Need to check characteristics too
+
+	GATTService svc;
+	svc.handle = cfg.handle;
+	svc.type = cfg.type;
+	svc.read = cfg.read;
+	svc.write = cfg.write;
+	svc.notify = cfg.notify;
+	svc.indicate = cfg.indicate;
+	svc.authReads = cfg.authReads;
+	svc.authWrites = cfg.authWrites;
+	svc.primary = isPrimary;
+
+	std::lock_guard lg(serviceLock);
+	services[cfg.handle] = svc;
+}
+
+void GATTServer::createCharacteristic(uint16_t svcHandle, const Attribute& cfg, const DataBuffer& value, bool isDescriptor)
+{
+	if(cfg.handle == 0x0000)
+	{
+		LOG_ERROR("Invalid characteristic handle %04X", cfg.handle);
+		throw -1;
+	}
+
+	std::lock_guard lg(serviceLock);
+	auto it = services.find(svcHandle);
+	if(it == services.end())
+	{
+		LOG_ERROR("Couldn't find service with %04X handle", svcHandle);
+		throw -1;
+	}
+
+	GATTCharacteristic charstic;
+	charstic.handle = cfg.handle;
+	charstic.type = cfg.type;
+	charstic.read = cfg.read;
+	charstic.write = cfg.write;
+	charstic.notify = cfg.notify;
+	charstic.indicate = cfg.indicate;
+	charstic.authReads = cfg.authReads;
+	charstic.authWrites = cfg.authWrites;
+	charstic.isDescriptor = isDescriptor;
+	charstic.value = value;
+
+	it->second.addCharacteristic(charstic);
+}
+
+void GATTService::addCharacteristic(GATTCharacteristic chstic)
+{
+	std::lock_guard lg(charLock);
+	characteristics[chstic.handle] = chstic;
 }
