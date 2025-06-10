@@ -252,6 +252,7 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
 	}
 
+	DataBuffer response;
 	// The first attributes BlueZ is asking are:
 	// --- Database Hash 0x2B2A
 	// --- Service Changed 0x2A05
@@ -260,27 +261,21 @@ DataBuffer ATTServer::handleReadByTypeReq(DataBuffer& data)
 	// Seems like hashing and service changed attributes are needed for GATT servers that expect attribute tree to be
 	// changed dynamically by the user.
 	// So, TODO: this in the future
+	// Includes we won't support, I think
 	if(attType == uuids::DatabaseHash || attType == uuids::ServiceChanged || attType == uuids::Include)
 	{
 		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 	}
-
-	// FIXME and TODO: Do this dynamically and move creation into separate function?
-	// TODO: Check that handle is within range
-	uint8_t uuid[16];
-	memset(uuid, 0x83, sizeof(uuid));
-	uint16_t handle = 0x1234;
-
-	std::vector<uint8_t> response;
-	response.push_back(ATT_READ_BY_TYPE_RSP);
-
-	size_t attrLen = sizeof(uuid) + sizeof(handle);
-	response.push_back(attrLen & 0xFF);
-
-	response.push_back(handle & 0xFF);
-	response.push_back(handle >> 8);
-
-	response.insert(response.end(), uuid, uuid + sizeof(uuid));
+	else if(attType == uuids::Characteristic)
+	{
+		response.push_back(ATT_READ_BY_TYPE_RSP);
+		appendMsgData(response, gatt.readCharacteristics(startHandle, endHandle), false);
+	}
+	else
+	{
+		LOG_ERROR("Attribute is not supported by Read by Type request!");
+		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+	}
 
 	return response;
 }

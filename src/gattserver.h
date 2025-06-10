@@ -34,7 +34,7 @@ protected:
 	{
 		SERVICE,
 		CHARACTERISTIC,
-		UNKNOWN,
+		// CHARVALUE,
 	};
 	GattType gattType;
 
@@ -44,6 +44,7 @@ public:
 
 	bool isService() const { return gattType == GattType::SERVICE; }
 	bool isCharstic() const { return gattType == GattType::CHARACTERISTIC; }
+	// bool isCharsticValue() const { return gattType == GattType::CHARVALUE; }
 };
 
 class GATTCharacteristic : public Attribute
@@ -56,6 +57,12 @@ public:
 	GATTCharacteristic()
 		: Attribute(GattType::CHARACTERISTIC) {}
 };
+
+// class GATTCharValue : public Attribute
+// {
+// public:
+
+// };
 
 class GATTService : public Attribute
 {
@@ -88,5 +95,6 @@ public:
 	void createService(AttHandle handle, const AttributeData& cfg, bool isPrimary = true);
 	void createCharacteristic(AttHandle handle, AttHandle svcHandle, const AttributeData& cfg, const DataBuffer& value = {}, bool isDescriptor = false);
 
-	DataBuffer readPrimaryServices(uint16_t startHandle, uint16_t endHandle);
+	DataBuffer readPrimaryServices(AttHandle startHandle, AttHandle endHandle);
+	DataBuffer readCharacteristics(AttHandle startHandle, AttHandle endHandle);
 };

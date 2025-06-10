@@ -24,6 +24,44 @@
    </GATT_SERVER>
 */
 
+static uint8_t calculateCharProperties(const AttributeData& data)
+{
+	uint8_t ret = 0;
+
+	if(data.read)
+	{
+		ret |= CHARPROP_Read;
+	}
+
+	// if(data.writeNoResponse)
+	// {
+	// 	ret |= CHARPROP_WriteWithoutResponse;
+	// }
+
+	if(data.write)
+	{
+		ret |= CHARPROP_Write;
+	}
+
+	if(data.notify)
+	{
+		ret |= CHARPROP_Notify;
+	}
+
+	if(data.indicate)
+	{
+		ret |= CHARPROP_Indicate;
+	}
+
+	if(data.authWrites)
+	{
+		ret |= CHARPROP_AuthenticatedSignedWrites;
+	}
+
+	LOG_DEBUG("Calculated characteristic properties: 0x%02X", ret);
+	return ret;
+}
+
 void GATTServer::createTestServer()
 {
 	// *******************************
@@ -82,63 +120,23 @@ void GATTServer::createTestServer()
 			// .handle = 0x0021,
 			.type = 0xFFFF,
 			.read = true,
-			.write = true,
+			// .write = true,
+			.write = false,
 		};
 		createCharacteristic(0x0021, 0x0020, char3);
 	}
 
 	{
-		AttributeData char4 = {
-			// .handle = 0x0028,
-			.type = 0xFFFF,
-			.read = true,
-			.write = true,
-			.notify = true,
-		};
-		createCharacteristic(0x0028, 0x0020, char4);
+		// TODO: Uncomment when fixed notify and stuff
+		// AttributeData char4 = {
+		// 	// .handle = 0x0028,
+		// 	.type = 0xFFFF,
+		// 	.read = true,
+		// 	.write = true,
+		// 	.notify = true,
+		// };
+		// createCharacteristic(0x0028, 0x0020, char4);
 	}
-
-
-	// handle = 0x0001;
-	// {
-	// 	uint8_t tmp[] = {0x57, 0x9c, 0xab, 0xf3, 0xbf, 0xe1, 0x4c, 0x27, 0x84, 0xc1, 0x49, 0x55, 0xb6, 0xd5, 0xa1, 0x02};
-	// 	memcpy(uuid, tmp, sizeof(uuid));
-	// }
-
-	// GATTService svc;
-	// svc.handle = 0x0002;
-	// {
-	// 	// TODO: By protocol it is allowed to set UUID as uint16, but maybe for ease we can deprecate it and allow only uuid128?
-	// 	// OR at least convert it to uuid128
-	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x0F};
-	// 	memcpy(svc.uuid, tmp, sizeof(svc.uuid));
-	// }
-	// svc.primary = true;
-
-	// {
-	// 	GATTCharacteristic charstic;
-	// 	charstic.handle = 0x0011;
-	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x20};
-	// 	memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
-	// 	charstic.value = {'H', 'e', 'l', 'l', 'o'};
-	// 	charstic.read = true;
-	// 	charstic.notify = true;
-	// 	svc.characteristics.push_back(charstic);
-	// }
-
-	// {
-	// 	GATTCharacteristic charstic;
-	// 	charstic.handle = 0x0012;
-	// 	uint8_t tmp[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x22, 0x21};
-	// 	memcpy(charstic.uuid, tmp, sizeof(charstic.uuid));
-	// 	charstic.value = {'W', 'o', 'r', 'l', 'd'};
-	// 	charstic.write = true;
-	// 	charstic.read = true;
-	// 	charstic.indicate = true;
-	// 	svc.characteristics.push_back(charstic);
-	// }
-
-	// services.push_back(svc);
 }
 
 void GATTServer::handleCheckBeforeCreation(AttHandle handle)
@@ -282,6 +280,36 @@ DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endH
 	{
 		LOG_ERROR("Found attribute that is neither Service nor Characteristic!");
 		throw InternalError;
+	}
+
+	return buf;
+}
+
+DataBuffer GATTServer::readCharacteristics(AttHandle startHandle, AttHandle endHandle)
+{
+	DataBuffer buf;
+	AttHandle dupStartHandle = startHandle;
+	while(dupStartHandle <= endHandle && dupStartHandle != 0x0000)
+	{
+		AttHandlePair attPair = findFirstAttrWithinRange(dupStartHandle, endHandle);
+		if(!attPair.second->isCharstic())
+		{
+			dupStartHandle = attPair.first + 1;
+			continue;
+		}
+
+		LOG_DEBUG("Found characteristic with %04X handle", attPair.first);
+		appendMsgData(buf, (uint8_t) (sizeof(AttHandle) + sizeof(uint8_t) + sizeof(AttHandle) + 2));
+		appendMsgData(buf, attPair.first);
+		appendMsgData(buf, calculateCharProperties(*attPair.second));
+		appendMsgData(buf, attPair.first); // TODO: Is correct if char handle is the same as value handle?
+		appendMsgData(buf, attPair.second->type.getUUID16());
+		break; // TODO: For now return only 1 characteristic per request
+	}
+
+	if(buf.empty())
+	{
+		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 	}
 
 	return buf;

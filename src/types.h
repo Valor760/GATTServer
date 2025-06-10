@@ -10,6 +10,18 @@
 #define ATT_READ_BY_GROUP_TYPE_REQ 0x10
 #define ATT_READ_BY_GROUP_TYPE_RSP 0x11
 
+enum CharacteristicProperties : uint8_t
+{
+	CHARPROP_Broadcast = 0x01, // If set, permits broadcasts of the Characteristic Value using Server Characteristic Configuration Descriptor. If set, the Server Characteristic Configuration Descriptor shall exist.
+	CHARPROP_Read = 0x02, // If set, permits reads of the Characteristic Value using procedures defined in Section 4.8
+	CHARPROP_WriteWithoutResponse = 0x04, // If set, permit writes of the Characteristic Value without response using procedures defined in Section 4.9.1.
+	CHARPROP_Write = 0x08, // If set, permits writes of the Characteristic Value with response using procedures defined in Section 4.9.3 or Section 4.9.4.
+	CHARPROP_Notify = 0x10, // If set, permits notifications of a Characteristic Value without acknowledgment using the procedure defined in Section 4.10. If set, the Client Characteristic Configuration Descriptor shall exist.
+	CHARPROP_Indicate = 0x20, // If set, permits indications of a Characteristic Value with acknowledgment using the procedure defined in Section 4.11. If set, the Client Characteristic Configuration Descriptor shall exist.
+	CHARPROP_AuthenticatedSignedWrites = 0x40, //If set, permits signed writes to the Characteristic Value using the procedure defined in Section 4.9.2.
+	CHARPROP_ExtendedProperties = 0x80, // If set, additional characteristic properties are defined in the Characteristic Extended Properties Descriptor defined in Section 3.3.3.1. If set, the Characteristic Extended Properties Descriptor shall exist.
+};
+
 // TODO: MTU is individual, but need to check if enough for us
 #define ATT_MTU 0xFF
 
