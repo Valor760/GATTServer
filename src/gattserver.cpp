@@ -5,9 +5,6 @@
 #include <cstring>
 #include <algorithm>
 
-// FIXME: Mutex can't be in GATT Service otherwise no operator= available. Need to think
-static std::mutex charLock;
-
 /*
 <GATT_SERVER handle="0000" uuid="579cabf3-bfe1-4c27-84c1-4955b6d5a102">
       <SERVICE handle="0001" uuid="180F" primary="true" enable="true">
@@ -33,27 +30,27 @@ void GATTServer::createTestServer()
 	// *         SERVICES            *
 	// *******************************
 	{
-		Attribute svc1 = {
-			.handle = 0x0010,
+		AttributeData svc1 = {
+			// .handle = 0x0010,
 			.type = 0xFFFF,
 			.read = true,
 			.write = false,
 			.notify = false,
 			.indicate = false,
 		};
-		createService(svc1);
+		createService(0x0010, svc1);
 	}
 
 	{
-		Attribute svc2 = {
-			.handle = 0x0020,
+		AttributeData svc2 = {
+			// .handle = 0x0020,
 			.type = 0xFFFF,
 			.read = true,
 			.write = false,
 			.notify = false,
 			.indicate = false,
 		};
-		createService(svc2);
+		createService(0x0020, svc2);
 	}
 
 	// *******************************
@@ -61,44 +58,44 @@ void GATTServer::createTestServer()
 	// *******************************
 
 	{
-		Attribute char1 = {
-			.handle = 0x0011,
+		AttributeData char1 = {
+			// .handle = 0x0011,
 			.type = 0xFFFF,
 			.read = true,
 			.write = false,
 		};
-		createCharacteristic(0x0010, char1, {'H', 'e', 'l', 'l', 'o', '!'});
+		createCharacteristic(0x0011, 0x0010, char1, {'H', 'e', 'l', 'l', 'o', '!'});
 	}
 
 	{
-		Attribute char2 = {
-			.handle = 0x0012,
+		AttributeData char2 = {
+			// .handle = 0x0012,
 			.type = 0xFFFF,
 			.read = false,
 			.write = true,
 		};
-		createCharacteristic(0x0010, char2);
+		createCharacteristic(0x0012, 0x0010, char2);
 	}
 
 	{
-		Attribute char3 = {
-			.handle = 0x0021,
+		AttributeData char3 = {
+			// .handle = 0x0021,
 			.type = 0xFFFF,
 			.read = true,
 			.write = true,
 		};
-		createCharacteristic(0x0020, char3);
+		createCharacteristic(0x0021, 0x0020, char3);
 	}
 
 	{
-		Attribute char4 = {
-			.handle = 0x0028,
+		AttributeData char4 = {
+			// .handle = 0x0028,
 			.type = 0xFFFF,
 			.read = true,
 			.write = true,
 			.notify = true,
 		};
-		createCharacteristic(0x0020, char4);
+		createCharacteristic(0x0028, 0x0020, char4);
 	}
 
 
@@ -144,107 +141,163 @@ void GATTServer::createTestServer()
 	// services.push_back(svc);
 }
 
-void GATTServer::createService(const Attribute& cfg, bool isPrimary)
+void GATTServer::handleCheckBeforeCreation(AttHandle handle)
 {
-	if(cfg.handle == 0x0000)
+	std::lock_guard lg(attLock);
+
+	if(attributes.contains(handle))
 	{
-		LOG_ERROR("Invalid service handle %04X", cfg.handle);
+		LOG_ERROR("Attribute with %04X handle already exists!", handle);
 		throw -1;
 	}
 
+	if(handle == 0x0000)
 	{
-		auto it = services.find(cfg.handle);
-		if(it != services.end())
-		{
-			LOG_ERROR("Service with %04X handle already exists!", cfg.handle);
-			throw -1;
-		}
+		LOG_ERROR("Invalid handle %04X", handle);
+		throw -1;
 	}
-	// TODO: Check no other attribute (service and characteristics) doesn't exist with the same handle
-	// Need to check characteristics too
-
-	GATTService svc;
-	svc.handle = cfg.handle;
-	svc.type = cfg.type;
-	svc.read = cfg.read;
-	svc.write = cfg.write;
-	svc.notify = cfg.notify;
-	svc.indicate = cfg.indicate;
-	svc.authReads = cfg.authReads;
-	svc.authWrites = cfg.authWrites;
-	svc.primary = isPrimary;
-
-	std::lock_guard lg(serviceLock);
-	services[cfg.handle] = svc;
 }
 
-void GATTServer::createCharacteristic(uint16_t svcHandle, const Attribute& cfg, const DataBuffer& value, bool isDescriptor)
+void GATTServer::createService(AttHandle handle, const AttributeData& cfg, bool isPrimary)
 {
-	if(cfg.handle == 0x0000)
+	handleCheckBeforeCreation(handle);
+
+	std::lock_guard lg(attLock);
+
+	std::unique_ptr<GATTService> svc = std::make_unique<GATTService>();
+	if(!svc)
 	{
-		LOG_ERROR("Invalid characteristic handle %04X", cfg.handle);
+		LOG_ERROR("Failed to allocate service memory");
 		throw -1;
 	}
 
-	std::lock_guard lg(serviceLock);
-	auto it = services.find(svcHandle);
-	if(it == services.end())
-	{
-		LOG_ERROR("Couldn't find service with %04X handle", svcHandle);
-		throw -1;
-	}
+	// svc.handle = cfg.handle;
+	svc->type = cfg.type;
+	svc->read = cfg.read;
+	svc->write = cfg.write;
+	svc->notify = cfg.notify;
+	svc->indicate = cfg.indicate;
+	svc->authReads = cfg.authReads;
+	svc->authWrites = cfg.authWrites;
+	svc->primary = isPrimary;
 
-	GATTCharacteristic charstic;
-	charstic.handle = cfg.handle;
-	charstic.type = cfg.type;
-	charstic.read = cfg.read;
-	charstic.write = cfg.write;
-	charstic.notify = cfg.notify;
-	charstic.indicate = cfg.indicate;
-	charstic.authReads = cfg.authReads;
-	charstic.authWrites = cfg.authWrites;
-	charstic.isDescriptor = isDescriptor;
-	charstic.value = value;
+	LOG_DEBUG("Adding Service with %04X handle", handle);
 
-	it->second.addCharacteristic(charstic);
+	attributes[handle] = std::move(svc);
 }
 
-DataBuffer GATTServer::readPrimaryServices(uint16_t startHandle, uint16_t endHandle)
+void GATTServer::createCharacteristic(AttHandle handle, AttHandle svcHandle, const AttributeData& cfg, const DataBuffer& value, bool isDescriptor)
 {
-	std::lock_guard lg(serviceLock);
-	auto& svc = findServiceWithinRange(startHandle, endHandle);
+	handleCheckBeforeCreation(handle);
 
-	LOG_DEBUG("Service found (hdl: %04X)", svc.handle);
+	std::lock_guard lg(attLock);
 
-	// TODO: Let's return services 1 by 1. Not very effective, but easy! Otherwise need to calculate how much
-	// space each service takes
-	// NOTE: For services it is easy, since they don't have data field, but pain for characteristics!
+	if(!attributes.contains(svcHandle))
+	{
+		LOG_ERROR("No parent Service with %04X handle is found!", svcHandle);
+		throw -1;
+	}
+
+	std::unique_ptr<GATTCharacteristic> charstic = std::make_unique<GATTCharacteristic>();
+	if(!charstic)
+	{
+		LOG_ERROR("Failed to allocate characteristic memory");
+		throw -1;
+	}
+
+	charstic->parentHandle = svcHandle;
+	charstic->type = cfg.type;
+	charstic->read = cfg.read;
+	charstic->write = cfg.write;
+	charstic->notify = cfg.notify;
+	charstic->indicate = cfg.indicate;
+	charstic->authReads = cfg.authReads;
+	charstic->authWrites = cfg.authWrites;
+	charstic->isDescriptor = isDescriptor;
+	charstic->value = value;
+
+	LOG_DEBUG("Adding Characteristic with %04X handle (parent service: %04X)", handle, svcHandle);
+
+	attributes[handle] = std::move(charstic);
+}
+
+DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endHandle)
+{
+	std::lock_guard lg(attLock);
+	auto attPair = findFirstAttrWithinRange(startHandle, endHandle);
+
+	AttHandle handle = attPair.first;
+	std::unique_ptr<Attribute>& attr = attPair.second;
+	LOG_DEBUG("Attribute found (hdl: %04X)", handle);
+
 	DataBuffer buf;
-	appendMsgData(buf, (uint8_t) (4 + 16));
-	appendMsgData(buf, svc.handle);
-	appendMsgData(buf, svc.handle);
-	appendMsgData(buf, svc.type.getUUID128());
+	if(attr->isService())
+	{
+		GATTService& svc = static_cast<GATTService&>(*attr);
+		AttHandle parentHandle = handle;
+		AttHandle nextHandle = handle + 1;
+
+		while(true)
+		{
+			try
+			{
+				auto nextPair = findFirstAttrWithinRange(nextHandle, endHandle);
+				if(nextPair.second->isCharstic())
+				{
+					GATTCharacteristic& chstic = static_cast<GATTCharacteristic&>(*nextPair.second);
+					if(chstic.parentHandle != parentHandle)
+					{
+						// Parent handle is not the same as the service we are currently looking at
+						// TODO: Check if this is even valid from GATT protocol!
+						break;
+					}
+
+					nextHandle = nextPair.first + 1;
+				}
+				else
+				{
+					// We are interested only in characteristics
+					break;
+				}
+			}
+			catch(...)
+			{
+				break;
+			}
+		}
+
+		// We are going to return only 1 service per request
+		// TODO: Do return several in the future
+		appendMsgData(buf, (uint8_t) (4 + 16));
+		appendMsgData(buf, parentHandle);
+		appendMsgData(buf, (AttHandle)(nextHandle - 1));
+		appendMsgData(buf, svc.type.getUUID128());
+	}
+	else if(attr->isCharstic())
+	{
+		// TODO:
+		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+	}
+	else
+	{
+		LOG_ERROR("Found attribute that is neither Service nor Characteristic!");
+		throw InternalError;
+	}
 
 	return buf;
 }
 
-GATTService& GATTServer::findServiceWithinRange(uint16_t startHandle, uint16_t endHandle)
+AttHandlePair GATTServer::findFirstAttrWithinRange(AttHandle startHandle, AttHandle endHandle)
 {
 	// std::lock_guard lg(serviceLock);
-	for(auto& [hdl, svc] : services)
+	for(auto& [hdl, svc] : attributes)
 	{
 		if(hdl >= startHandle && hdl <= endHandle)
 		{
-			return svc;
+			return {hdl, svc};
 		}
 	}
 
 	LOG_DEBUG("Service within %04X and %04X handle range not found", startHandle, endHandle);
 	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
-}
-
-void GATTService::addCharacteristic(GATTCharacteristic chstic)
-{
-	std::lock_guard lg(charLock);
-	characteristics[chstic.handle] = chstic;
 }

@@ -7,11 +7,15 @@
 #include <cstdint>
 #include <mutex>
 #include <map>
+#include <variant>
+#include <memory>
 
-class Attribute
+using AttHandle = uint16_t;
+
+class AttributeData
 {
 public:
-	uint16_t handle;
+	// AttHandle handle; // TODO: Since we store everything in the ordered map - should we store handle of the attribute inside class?
 	UUID type;
 
 	bool read;
@@ -23,30 +27,56 @@ public:
 	bool authWrites;
 };
 
+class Attribute : public AttributeData
+{
+protected:
+	enum class GattType
+	{
+		SERVICE,
+		CHARACTERISTIC,
+		UNKNOWN,
+	};
+	GattType gattType;
+
+public:
+	Attribute(GattType gattType)
+		: gattType(gattType) {}
+
+	bool isService() const { return gattType == GattType::SERVICE; }
+	bool isCharstic() const { return gattType == GattType::CHARACTERISTIC; }
+};
+
 class GATTCharacteristic : public Attribute
 {
 public:
+	AttHandle parentHandle; // TODO: Should we need store child handles in service too?
 	bool isDescriptor;
 	DataBuffer value;
+
+	GATTCharacteristic()
+		: Attribute(GattType::CHARACTERISTIC) {}
 };
 
 class GATTService : public Attribute
 {
-	std::map<uint16_t, GATTCharacteristic> characteristics;
-
 public:
 	bool primary;
 
-	void addCharacteristic(GATTCharacteristic chstic);
-
+	GATTService()
+		: Attribute(GattType::SERVICE) {}
 };
+
+using AttHandlePair = std::pair<AttHandle, std::unique_ptr<Attribute>&>;
 
 class GATTServer
 {
-	std::mutex serviceLock;
-	std::map<uint16_t, GATTService> services;
+	// Each part of gatt server (characteristic or service) is an Attribute
+	std::mutex attLock;
+	std::map<AttHandle, std::unique_ptr<Attribute>> attributes;
 
-	GATTService& findServiceWithinRange(uint16_t startHandle, uint16_t endHandle);
+	void handleCheckBeforeCreation(AttHandle handle);
+
+	AttHandlePair findFirstAttrWithinRange(uint16_t startHandle, uint16_t endHandle);
 
 public:
 	GATTServer() = default;
@@ -55,8 +85,8 @@ public:
 
 	// Attribute struct should be fully configured
 	// TODO: Currently only primary services are supportedm which are in the top level of profile
-	void createService(const Attribute& cfg, bool isPrimary = true);
-	void createCharacteristic(uint16_t svcHandle, const Attribute& cfg, const DataBuffer& value = {}, bool isDescriptor = false);
+	void createService(AttHandle handle, const AttributeData& cfg, bool isPrimary = true);
+	void createCharacteristic(AttHandle handle, AttHandle svcHandle, const AttributeData& cfg, const DataBuffer& value = {}, bool isDescriptor = false);
 
 	DataBuffer readPrimaryServices(uint16_t startHandle, uint16_t endHandle);
 };
