@@ -408,6 +408,82 @@ DataBuffer GATTServer::readCharBlobData(AttHandle handle, uint16_t offset)
 	return buf;
 }
 
+void GATTServer::writeCharData(AttHandle handle, const DataBuffer& data)
+{
+	std::lock_guard lg(attLock);
+
+	if(!attributes.contains(handle))
+	{
+		LOG_ERROR("Don't have attribute with %04X handle", handle);
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	auto& attr = attributes[handle];
+	if(!attr->isCharstic())
+	{
+		LOG_ERROR("We support reading data only from characteristics!");
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	GATTCharacteristic& chstic = static_cast<GATTCharacteristic&>(*attr);
+	chstic.value = data;
+}
+
+void GATTServer::prepareWriteCharData(AttHandle handle, uint16_t offset, const DataBuffer& data)
+{
+	std::lock_guard lg(attLock);
+
+	if(!attributes.contains(handle))
+	{
+		LOG_ERROR("Don't have attribute with %04X handle", handle);
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	auto& attr = attributes[handle];
+	if(!attr->isCharstic())
+	{
+		LOG_ERROR("We support reading data only from characteristics!");
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	// All data and offset validation is happening during executeWriteCharData
+	GATTWriteQueue q = {
+		.handle = handle,
+		.offset = offset,
+		.data = data,
+	};
+	writeQueue.push_back(q);
+}
+
+void GATTServer::executeWriteCharData(bool cancel)
+{
+	std::lock_guard lg(attLock);
+
+	if(cancel)
+	{
+		LOG_DEBUG("Write queue clear request");
+		writeQueue.clear();
+		return;
+	}
+
+	if(writeQueue.empty())
+	{
+		LOG_DEBUG("Write queue is empty, doing nothing");
+		return;
+	}
+
+	// TODO: For now assume that queue contains only 1 handle and offsets are in order, so don't look for next one
+	GATTWriteQueue& q = writeQueue[0];
+	GATTCharacteristic& charstic = static_cast<GATTCharacteristic&>(*attributes[q.handle]);
+
+	charstic.value.clear();
+	for(auto& dataBlob : writeQueue)
+	{
+		charstic.value.insert(charstic.value.end(), dataBlob.data.begin(), dataBlob.data.end());
+	}
+	writeQueue.clear();
+}
+
 AttHandlePair GATTServer::findFirstAttrWithinRange(AttHandle startHandle, AttHandle endHandle)
 {
 	// std::lock_guard lg(serviceLock);

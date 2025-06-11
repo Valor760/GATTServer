@@ -42,6 +42,9 @@ class ATTServer
 	DataBuffer handleFindInfoReq(DataBuffer& data);
 	DataBuffer handleReadReq(DataBuffer& data);
 	DataBuffer handleReadBlobReq(DataBuffer& data);
+	DataBuffer handleWriteReq(DataBuffer& data);
+	DataBuffer handleWritePrepareReq(DataBuffer& data);
+	DataBuffer handleWriteExecuteReq(DataBuffer& data);
 
 public:
 	ATTServer();

@@ -15,6 +15,12 @@
 #define ATT_READ_BLOB_RSP 0x0D
 #define ATT_READ_BY_GROUP_TYPE_REQ 0x10
 #define ATT_READ_BY_GROUP_TYPE_RSP 0x11
+#define ATT_WRITE_REQ 0x12
+#define ATT_WRITE_RSP 0x13
+#define ATT_PREPARE_WRITE_REQ 0x16
+#define ATT_PREPARE_WRITE_RSP 0x17
+#define ATT_EXECUTE_WRITE_REQ 0x18
+#define ATT_EXECUTE_WRITE_RSP 0x19
 
 enum CharacteristicProperties : uint8_t
 {

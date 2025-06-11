@@ -15,7 +15,6 @@ using AttHandle = uint16_t;
 class AttributeData
 {
 public:
-	// AttHandle handle; // TODO: Since we store everything in the ordered map - should we store handle of the attribute inside class?
 	UUID type;
 
 	bool read;
@@ -50,7 +49,7 @@ public:
 class GATTCharacteristic : public Attribute
 {
 public:
-	AttHandle parentHandle; // TODO: Should we need store child handles in service too?
+	AttHandle parentHandle;
 	bool isDescriptor;
 	DataBuffer value;
 
@@ -58,11 +57,13 @@ public:
 		: Attribute(GattType::CHARACTERISTIC) {}
 };
 
-// class GATTCharValue : public Attribute
-// {
-// public:
-
-// };
+class GATTWriteQueue
+{
+public:
+	AttHandle handle;
+	uint16_t offset;
+	DataBuffer data;
+};
 
 class GATTService : public Attribute
 {
@@ -80,6 +81,7 @@ class GATTServer
 	// Each part of gatt server (characteristic or service) is an Attribute
 	std::mutex attLock;
 	std::map<AttHandle, std::unique_ptr<Attribute>> attributes;
+	std::vector<GATTWriteQueue> writeQueue;
 
 	void handleCheckBeforeCreation(AttHandle handle);
 
@@ -100,4 +102,8 @@ public:
 
 	DataBuffer readCharData(AttHandle handle);
 	DataBuffer readCharBlobData(AttHandle handle, uint16_t offset);
+
+	void writeCharData(AttHandle handle, const DataBuffer& data);
+	void prepareWriteCharData(AttHandle handle, uint16_t offset, const DataBuffer& data);
+	void executeWriteCharData(bool cancel);
 };

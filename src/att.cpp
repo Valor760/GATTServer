@@ -203,6 +203,15 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 			case ATT_READ_BLOB_REQ:
 				return handleReadBlobReq(data);
 
+			case ATT_WRITE_REQ:
+				return handleWriteReq(data);
+
+			case ATT_PREPARE_WRITE_REQ:
+				return handleWritePrepareReq(data);
+
+			case ATT_EXECUTE_WRITE_REQ:
+				return handleWriteExecuteReq(data);
+
 			default:
 				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
 				throw AttErrorCodes::RequestNotSupported;
@@ -405,6 +414,60 @@ DataBuffer ATTServer::handleReadBlobReq(DataBuffer& data)
 	appendMsgData(rsp, gatt.readCharBlobData(handle, offset), false);
 
 	return rsp;
+}
+
+DataBuffer ATTServer::handleWriteReq(DataBuffer& data)
+{
+	LOG_DEBUG("Write request received");
+
+	AttHandle handle = toUINT16(data);
+
+	LOG_DEBUG("    Handle: 0x%04X", handle);
+	HEXDUMP_DEBUG("Write data", data.data(), data.size());
+
+	gatt.writeCharData(handle, data);
+
+	return {ATT_WRITE_RSP};
+}
+
+DataBuffer ATTServer::handleWritePrepareReq(DataBuffer& data)
+{
+	LOG_DEBUG("Prepare Write request received");
+
+	AttHandle handle = toUINT16(data);
+	uint16_t offset = toUINT16(data);
+
+	LOG_DEBUG("    Handle: 0x%04X", handle);
+	LOG_DEBUG("    Offset: %d", offset);
+	HEXDUMP_DEBUG("Write data", data.data(), data.size());
+
+	gatt.prepareWriteCharData(handle, offset, data);
+
+	DataBuffer rsp;
+	rsp.push_back(ATT_PREPARE_WRITE_RSP);
+	appendMsgData(rsp, handle);
+	appendMsgData(rsp, offset);
+	appendMsgData(rsp, data, false);
+
+	return rsp;
+}
+
+DataBuffer ATTServer::handleWriteExecuteReq(DataBuffer& data)
+{
+	// FIXME: Execute request doesn't provide handle to execute. Instead, it seems that protocol expects us to
+	// save client connection and execute per connection
+	// For now we will process request immediately, but in future this may be an issue if several client are
+	// writing simultaniously (maybe makes sense to lock out the queue until one of the clients finishes the exec)
+
+	LOG_DEBUG("Execute Write request received");
+
+	uint8_t flag = toUINT8(data);
+
+	LOG_DEBUG("    Flag: 0x%02X", flag);
+
+	gatt.executeWriteCharData(flag == 0x00);
+
+	return {ATT_EXECUTE_WRITE_RSP};
 }
 
 ATTServer::~ATTServer()
