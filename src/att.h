@@ -26,14 +26,25 @@ public:
 	int getFD() const;
 };
 
+class ATTClient
+{
+	struct sockaddr_l2 addr = {};
+	unsigned int opt = sizeof(addr);
+
+public:
+	int fd;
+
+	ATTClient(const ATTBind& sock);
+	~ATTClient();
+};
+
 class ATTServer
 {
 	GATTServer gatt;
 	ATTBind bredrHandle;
 	ATTBind bleHandle;
 
-	void acceptAttConnection(int serverFD);
-	void handleAttConnection(int clientFD, struct sockaddr_l2 l2addr);
+	void handleAttConnection(int clientFD);
 	DataBuffer processCommands(DataBuffer& data);
 
 	// Remote request handling

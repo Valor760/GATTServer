@@ -14,6 +14,7 @@
 #include <array>
 #include <thread>
 #include <utility>
+#include <algorithm>
 
 /*
  * The PSM 31 is used for getting attributes over BR/EDR.
@@ -78,6 +79,25 @@ int ATTBind::getFD() const
 	return sock;
 }
 
+ATTClient::ATTClient(const ATTBind& sock)
+	: fd(accept(sock.getFD(), (struct sockaddr*) &addr, &opt))
+{
+	if(fd < 0)
+	{
+		LOG_ERROR("Failed to accept client [errno %d: %m]", errno);
+		throw -1;
+	}
+
+	const bool isBLE = addr.l2_bdaddr_type != 0;
+	LOG_DEBUG("Handle %s ATT connection from %s [fd %d]", isBLE ? "BLE" : "BR/EDR", addrToStr(addr.l2_bdaddr).c_str(), fd);
+}
+
+ATTClient::~ATTClient()
+{
+	LOG_DEBUG("Closing ATT connection with %s [fd %d]", addrToStr(addr.l2_bdaddr).c_str(), fd);
+	close(fd);
+}
+
 ATTServer::ATTServer()
 	: bredrHandle(htobs(ATT_PSM), htobs(0), 0),
 	  bleHandle(htobs(0), htobs(ATT_CID), 1)
@@ -93,13 +113,25 @@ void ATTServer::finish()
 
 void ATTServer::run()
 {
+	std::vector<std::unique_ptr<ATTClient>> clientList;
+
 	while(true)
 	{
 		std::vector<pollfd> pfds = {{bleHandle.getFD(), POLLIN, 0}, {bredrHandle.getFD(), POLLIN, 0}};
+		for(const auto& client : clientList)
+		{
+			pfds.push_back({client->fd, POLLIN, 0});
+		}
 
-		LOG_DEBUG("Wait for ATT connect");
+		LOG_DEBUG("Wait for ATT commands");
 
-		if(poll(pfds.data(), pfds.size(), -1) <= 0 || (!(pfds[0].revents & POLLIN) && !(pfds[1].revents & POLLIN)))
+		if(poll(pfds.data(), pfds.size(), -1) <= 0)
+		{
+			LOG_ERROR("Poll error [errno %d: %m]", errno);
+			break;
+		}
+
+		if(pfds[0].revents & (POLLHUP | POLLERR) || pfds[1].revents & (POLLHUP | POLLERR))
 		{
 			LOG_DEBUG("L2CAP signalled to close");
 			return;
@@ -108,80 +140,76 @@ void ATTServer::run()
 		if(pfds[0].revents & POLLIN)
 		{
 			LOG_DEBUG("Accepting BLE ATT connection");
-			acceptAttConnection(bleHandle.getFD());
+			try
+			{
+				clientList.push_back(std::make_unique<ATTClient>(bleHandle));
+			}
+			catch(...)
+			{
+				LOG_ERROR("Failed to accept BLE ATT connection");
+			}
 		}
 
 		if(pfds[1].revents & POLLIN)
 		{
 			LOG_DEBUG("Accepting BR/EDR ATT connection");
-			acceptAttConnection(bredrHandle.getFD());
+			try
+			{
+				clientList.push_back(std::make_unique<ATTClient>(bredrHandle));
+			}
+			catch(...)
+			{
+				LOG_ERROR("Failed to accept BR/EDR ATT connection");
+			}
+		}
+
+		for(size_t i = 2; i < pfds.size(); i++)
+		{
+			pollfd& evt = pfds[i];
+			if(evt.revents & (POLLHUP | POLLERR))
+			{
+				clientList.erase(std::find_if(clientList.begin(), clientList.end(),
+					[&](const std::unique_ptr<ATTClient>& client) {
+						return client->fd == evt.fd;
+					}
+				));
+				continue;
+			}
+
+			handleAttConnection(evt.fd);
 		}
 
 		// TODO: Interrupt pipe
 	}
 }
 
-void ATTServer::acceptAttConnection(int serverFD)
+void ATTServer::handleAttConnection(int clientFD)
 {
-	struct sockaddr_l2 addr = {};
-	unsigned int opt        = sizeof(addr);
-
-	int clientFD = accept(serverFD, (struct sockaddr *) &addr, &opt);
-	if(clientFD >= 0)
+	std::vector<uint8_t> data;
+	auto ret = readData(clientFD, data);
+	if(ret > 0)
 	{
-		std::thread th(&ATTServer::handleAttConnection, this, clientFD, addr);
-		th.detach();
+		HEXDUMP_DEBUG("Received data", data.data(), ret);
+		try
+		{
+			writeData(clientFD, processCommands(data));
+		}
+		catch(const AttError& err)
+		{
+			writeData(clientFD, createErrorResponse(err));
+		}
 	}
 	else
 	{
-		LOG_ERROR("Failed to accept client [errno %d: %m]", errno);
+		LOG_ERROR("Failed to read data from fd %d [errno %d: %m]", clientFD, errno);
 	}
-}
-
-void ATTServer::handleAttConnection(int clientFD, struct sockaddr_l2 l2addr)
-{
-	const bool isBLE = l2addr.l2_bdaddr_type != 0; // TODO: Enum/define
-
-	LOG_DEBUG("Handle %s ATT connection from %s", isBLE ? "BLE" : "BR/EDR", addrToStr(l2addr.l2_bdaddr).c_str());
-
-	while(true)
-	{
-		pollfd cpfd{clientFD, POLLIN, 0};
-		poll(&cpfd, 1, -1);
-
-		if(cpfd.revents & POLLHUP)
-		{
-			break;
-		}
-
-		std::vector<uint8_t> data;
-		auto ret = readData(clientFD, data);
-		if(ret > 0)
-		{
-			HEXDUMP_DEBUG("Received data", data.data(), ret);
-			try
-			{
-				writeData(clientFD, processCommands(data));
-			}
-			catch(const AttError& err)
-			{
-				writeData(clientFD, createErrorResponse(err));
-			}
-			catch(...)
-			{
-				LOG_ERROR("Unhandled exception received...");
-				break;
-			}
-		}
-	}
-
-	LOG_DEBUG("Closing ATT connection with %s", addrToStr(l2addr.l2_bdaddr).c_str());
-	close(clientFD);
 }
 
 DataBuffer ATTServer::processCommands(DataBuffer& data)
 {
+	// handleAttConnection ensures ret > 0, so we have at least 1 byte of data
 	uint8_t opcode = toUINT8(data);
+
 	try
 	{
 		LOG_DEBUG("Processing command 0x%02X", opcode);
@@ -224,6 +252,11 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 	catch(const HandleError& handleError)
 	{
 		throw AttError(handleError.first, opcode, handleError.second);
+	}
+	catch(...)
+	{
+		LOG_ERROR("Unhandled exception...");
+		throw AttError(AttErrorCodes::UnlikelyError, opcode, 0x0000);
 	}
 }
 
