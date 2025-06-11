@@ -21,6 +21,9 @@
 #define ATT_PREPARE_WRITE_RSP 0x17
 #define ATT_EXECUTE_WRITE_REQ 0x18
 #define ATT_EXECUTE_WRITE_RSP 0x19
+#define ATT_HANDLE_VALUE_NTF 0x1B
+#define ATT_HANDLE_VALUE_IND 0x1D
+#define ATT_HANDLE_VALUE_CFM 0x1E
 
 enum CharacteristicProperties : uint8_t
 {

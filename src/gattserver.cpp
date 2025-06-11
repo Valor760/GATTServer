@@ -23,7 +23,7 @@
       </SERVICE>
    </GATT_SERVER>
 */
-static DataBuffer generateRandomData(size_t size)
+DataBuffer generateRandomData(size_t size)
 {
 	DataBuffer attr;
 	attr.reserve(size);
@@ -150,7 +150,18 @@ void GATTServer::createTestServer()
 			.write = true,
 			.notify = true,
 		};
-		createCharacteristic(0x0028, 0x0020, char4, generateRandomData(300));
+		createCharacteristic(0x0028, 0x0020, char4, generateRandomData(64));
+	}
+
+	{
+		AttributeData char5 = {
+			.type = 0x0029,
+			.read = true,
+			.write = true,
+			.notify = false,
+			.indicate = true,
+		};
+		createCharacteristic(0x0029, 0x0020, char5);
 	}
 }
 
@@ -497,4 +508,52 @@ AttHandlePair GATTServer::findFirstAttrWithinRange(AttHandle startHandle, AttHan
 
 	LOG_DEBUG("Service within %04X and %04X handle range not found", startHandle, endHandle);
 	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+}
+
+DataBuffer GATTServer::localUpdateCharData(AttHandle handle, const DataBuffer& data)
+{
+	std::lock_guard lg(attLock);
+
+	if(!attributes.contains(handle))
+	{
+		LOG_ERROR("Don't have attribute with %04X handle", handle);
+		throw -1;
+	}
+
+	auto& attr = attributes[handle];
+	if(!attr->isCharstic())
+	{
+		LOG_ERROR("We support writing data only from characteristics!");
+		throw -1;
+	}
+
+	// HEXDUMP_DEBUG("Updating characteristic data locally", data.data(), data.size());
+
+	GATTCharacteristic& chstic = static_cast<GATTCharacteristic&>(*attr);
+	chstic.value = data;
+
+	uint8_t opCode = 0;
+	if(chstic.indicate)
+	{
+		opCode = ATT_HANDLE_VALUE_IND;
+	}
+	else if(chstic.notify)
+	{
+		opCode = ATT_HANDLE_VALUE_NTF;
+	}
+	else
+	{
+		return {};
+	}
+
+	size_t maxLength = std::min(chstic.value.size(), (size_t)(ATT_MTU - 3));
+	DataBuffer curData;
+	curData.insert(curData.begin(), data.begin(), data.begin() + maxLength);
+
+	DataBuffer response;
+	appendMsgData(response, opCode);
+	appendMsgData(response, handle);
+	appendMsgData(response, curData, false);
+
+	return response;
 }

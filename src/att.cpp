@@ -56,6 +56,21 @@ static bool writeData(int fd, const std::vector<uint8_t>& data)
 	return true;
 }
 
+SocketPair::SocketPair()
+{
+	if(socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fds) != 0)
+	{
+		LOG_ERROR("Failed to create unix socketpair [errno %d: %m]", errno);
+		throw -1;
+	}
+}
+
+SocketPair::~SocketPair()
+{
+	close(fds[0]);
+	close(fds[1]);
+}
+
 ATTBind::ATTBind(uint16_t psm, uint16_t cid, uint8_t addrType)
 {
 	struct sockaddr_l2 addr = {0, 0, {0}, 0, 0};
@@ -117,7 +132,7 @@ void ATTServer::run()
 
 	while(true)
 	{
-		std::vector<pollfd> pfds = {{bleHandle.getFD(), POLLIN, 0}, {bredrHandle.getFD(), POLLIN, 0}};
+		std::vector<pollfd> pfds = {{bleHandle.getFD(), POLLIN, 0}, {bredrHandle.getFD(), POLLIN, 0}, {ipc.fds[0], POLLIN, 0}};
 		for(const auto& client : clientList)
 		{
 			pfds.push_back({client->fd, POLLIN, 0});
@@ -163,7 +178,19 @@ void ATTServer::run()
 			}
 		}
 
-		for(size_t i = 2; i < pfds.size(); i++)
+		if(pfds[2].revents & POLLIN)
+		{
+			DataBuffer data;
+			if(readData(pfds[2].fd, data) > 0)
+			{
+				for(const auto& client : clientList)
+				{
+					writeData(client->fd, data);
+				}
+			}
+		}
+
+		for(size_t i = 3; i < pfds.size(); i++)
 		{
 			pollfd& evt = pfds[i];
 			if(evt.revents & (POLLHUP | POLLERR))
@@ -192,7 +219,11 @@ void ATTServer::handleAttConnection(int clientFD)
 		HEXDUMP_DEBUG("Received data", data.data(), ret);
 		try
 		{
-			writeData(clientFD, processCommands(data));
+			DataBuffer response = processCommands(data);
+			if(response.size() > 0)
+			{
+				writeData(clientFD, response);
+			}
 		}
 		catch(const AttError& err)
 		{
@@ -239,6 +270,9 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 
 			case ATT_EXECUTE_WRITE_REQ:
 				return handleWriteExecuteReq(data);
+
+			case ATT_HANDLE_VALUE_CFM:
+				return {};
 
 			default:
 				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
@@ -506,4 +540,14 @@ DataBuffer ATTServer::handleWriteExecuteReq(DataBuffer& data)
 ATTServer::~ATTServer()
 {
 	LOG_DEBUG("ATT Server exiting...");
+}
+
+void ATTServer::updateCharValue(AttHandle handle, const DataBuffer& data)
+{
+	DataBuffer response = gatt.localUpdateCharData(handle, data);
+
+	if(response.size() > 0)
+	{
+		writeData(ipc.fds[1], response);
+	}
 }

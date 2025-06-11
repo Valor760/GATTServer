@@ -106,4 +106,7 @@ public:
 	void writeCharData(AttHandle handle, const DataBuffer& data);
 	void prepareWriteCharData(AttHandle handle, uint16_t offset, const DataBuffer& data);
 	void executeWriteCharData(bool cancel);
+
+	// Returns response either Indicate or Notify, empty for nothing
+	DataBuffer localUpdateCharData(AttHandle handle, const DataBuffer& data);
 };

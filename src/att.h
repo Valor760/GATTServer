@@ -16,6 +16,15 @@
 
 using L2CapSock = Socket<AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP>;
 
+class SocketPair
+{
+public:
+	int fds[2];
+
+	SocketPair();
+	~SocketPair();
+};
+
 class ATTBind
 {
 	L2CapSock sock;
@@ -40,6 +49,7 @@ public:
 
 class ATTServer
 {
+	SocketPair ipc;
 	GATTServer gatt;
 	ATTBind bredrHandle;
 	ATTBind bleHandle;
@@ -63,4 +73,6 @@ public:
 
 	void finish();
 	void run();
+
+	void updateCharValue(AttHandle handle, const DataBuffer& data);
 };
