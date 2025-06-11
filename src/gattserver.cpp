@@ -97,7 +97,6 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char1 = {
-			// .handle = 0x0011,
 			.type = 0xFFFF,
 			.read = true,
 			.write = false,
@@ -107,7 +106,6 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char2 = {
-			// .handle = 0x0012,
 			.type = 0xFFFF,
 			.read = false,
 			.write = true,
@@ -117,7 +115,6 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char3 = {
-			// .handle = 0x0021,
 			.type = 0xFFFF,
 			.read = true,
 			// .write = true,
@@ -271,14 +268,17 @@ DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endH
 		appendMsgData(buf, (AttHandle)(nextHandle - 1));
 		appendMsgData(buf, svc.type.getUUID128());
 	}
-	else if(attr->isCharstic())
-	{
-		// TODO:
-		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
-	}
 	else
 	{
-		LOG_ERROR("Found attribute that is neither Service nor Characteristic!");
+		// After testing with Android it seems that it is not supported for characteristic to be "out of order"
+		// What it means - assume the following structure of attributes:
+		// Service(0010)
+		// -- Char (0011, parent 0010)
+		// Service(0020)
+		// -- Char(0021, parent 0020)
+		// -- Char(0030, parent 0010)
+		// The characteristics parent should always correspond to the service right on top of them!
+		LOG_ERROR("Found attribute that is not a Service!");
 		throw InternalError;
 	}
 
