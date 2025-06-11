@@ -194,6 +194,9 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 			case ATT_READ_BY_GROUP_TYPE_REQ:
 				return handleReadByGroupReq(data);
 
+			case ATT_FIND_INFORMATION_REQ:
+				return handleFindInfoReq(data);
+
 			default:
 				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
 				throw AttErrorCodes::RequestNotSupported;
@@ -344,6 +347,20 @@ DataBuffer ATTServer::handleReadByGroupReq(DataBuffer& data)
 	}
 
 	return rsp;
+}
+
+DataBuffer ATTServer::handleFindInfoReq(DataBuffer& data)
+{
+	LOG_DEBUG("Find information request received");
+
+	AttHandle startHandle = toUINT16(data);
+	AttHandle endHandle = toUINT16(data);
+
+	LOG_DEBUG("    Start Handle: 0x%04X", startHandle);
+	LOG_DEBUG("    End Handle: 0x%04X", endHandle);
+
+	// TODO: This is used for discovering descriptors. We do not support them for now
+	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 }
 
 ATTServer::~ATTServer()

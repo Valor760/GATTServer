@@ -124,15 +124,13 @@ void GATTServer::createTestServer()
 	}
 
 	{
-		// TODO: Uncomment when fixed notify and stuff
-		// AttributeData char4 = {
-		// 	// .handle = 0x0028,
-		// 	.type = 0xFFFF,
-		// 	.read = true,
-		// 	.write = true,
-		// 	.notify = true,
-		// };
-		// createCharacteristic(0x0028, 0x0020, char4);
+		AttributeData char4 = {
+			.type = 0xFFFF,
+			.read = true,
+			.write = true,
+			.notify = true,
+		};
+		createCharacteristic(0x0028, 0x0020, char4);
 	}
 }
 
@@ -166,7 +164,6 @@ void GATTServer::createService(AttHandle handle, const AttributeData& cfg, bool 
 		throw -1;
 	}
 
-	// svc.handle = cfg.handle;
 	svc->type = cfg.type;
 	svc->read = cfg.read;
 	svc->write = cfg.write;
@@ -243,7 +240,7 @@ DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endH
 					if(chstic.parentHandle != parentHandle)
 					{
 						// Parent handle is not the same as the service we are currently looking at
-						// TODO: Check if this is even valid from GATT protocol!
+						// TODO: Should we drop an exception? Seems like an issue here
 						break;
 					}
 
@@ -263,10 +260,11 @@ DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endH
 
 		// We are going to return only 1 service per request
 		// TODO: Do return several in the future
-		appendMsgData(buf, (uint8_t) (4 + 16));
+		appendMsgData(buf, (uint8_t) (3 * sizeof(uint16_t)));
 		appendMsgData(buf, parentHandle);
 		appendMsgData(buf, (AttHandle)(nextHandle - 1));
-		appendMsgData(buf, svc.type.getUUID128());
+		appendMsgData(buf, svc.type.getUUID16()); // TODO: Let's return uuid16 only for now
+		// appendMsgData(buf, svc.type.getUUID128());
 	}
 	else
 	{
@@ -287,6 +285,8 @@ DataBuffer GATTServer::readPrimaryServices(AttHandle startHandle, AttHandle endH
 
 DataBuffer GATTServer::readCharacteristics(AttHandle startHandle, AttHandle endHandle)
 {
+	std::lock_guard lg(attLock);
+
 	DataBuffer buf;
 	AttHandle dupStartHandle = startHandle;
 	while(dupStartHandle <= endHandle && dupStartHandle != 0x0000)

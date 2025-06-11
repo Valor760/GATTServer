@@ -39,6 +39,7 @@ class ATTServer
 	// Remote request handling
 	DataBuffer handleReadByTypeReq(DataBuffer& data);
 	DataBuffer handleReadByGroupReq(DataBuffer& data);
+	DataBuffer handleFindInfoReq(DataBuffer& data);
 
 public:
 	ATTServer();
