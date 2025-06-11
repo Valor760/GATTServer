@@ -97,4 +97,7 @@ public:
 
 	DataBuffer readPrimaryServices(AttHandle startHandle, AttHandle endHandle);
 	DataBuffer readCharacteristics(AttHandle startHandle, AttHandle endHandle);
+
+	DataBuffer readCharData(AttHandle handle);
+	DataBuffer readCharBlobData(AttHandle handle, uint16_t offset);
 };

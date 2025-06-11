@@ -9,6 +9,10 @@
 #define ATT_FIND_INFORMATION_RSP 0x05
 #define ATT_READ_BY_TYPE_REQ 0x08
 #define ATT_READ_BY_TYPE_RSP 0x09
+#define ATT_READ_REQ 0x0A
+#define ATT_READ_RSP 0x0B
+#define ATT_READ_BLOB_REQ 0x0C
+#define ATT_READ_BLOB_RSP 0x0D
 #define ATT_READ_BY_GROUP_TYPE_REQ 0x10
 #define ATT_READ_BY_GROUP_TYPE_RSP 0x11
 
@@ -24,8 +28,10 @@ enum CharacteristicProperties : uint8_t
 	CHARPROP_ExtendedProperties = 0x80, // If set, additional characteristic properties are defined in the Characteristic Extended Properties Descriptor defined in Section 3.3.3.1. If set, the Characteristic Extended Properties Descriptor shall exist.
 };
 
-// TODO: MTU is individual, but need to check if enough for us
-#define ATT_MTU 0xFF
+// TODO: This seems to be variable size. There is ATT_EXCHANGE_­MTU_­REQ, but Android is not using it and expects
+// 23 bytes out of the box. Need to check with other tools (like gatttool), whether they exchange MTU
+// But anyway we probably need to have a per-connection MTU variable
+#define ATT_MTU 23
 
 enum class AttErrorCodes : uint8_t
 {

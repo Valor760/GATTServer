@@ -23,6 +23,28 @@
       </SERVICE>
    </GATT_SERVER>
 */
+static DataBuffer generateRandomData(size_t size)
+{
+	DataBuffer attr;
+	attr.reserve(size);
+
+	for(;;)
+	{
+		char ch = rand() % 0xFF;
+		if(std::isalnum(ch))
+		{
+			attr.push_back(ch);
+		}
+
+		if(attr.size() == size)
+		{
+			break;
+		}
+	}
+
+	HEXDUMP_DEBUG("Generated random data", attr.data(), attr.size());
+	return attr;
+}
 
 static uint8_t calculateCharProperties(const AttributeData& data)
 {
@@ -69,8 +91,7 @@ void GATTServer::createTestServer()
 	// *******************************
 	{
 		AttributeData svc1 = {
-			// .handle = 0x0010,
-			.type = 0xFFFF,
+			.type = 0x0010,
 			.read = true,
 			.write = false,
 			.notify = false,
@@ -81,8 +102,7 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData svc2 = {
-			// .handle = 0x0020,
-			.type = 0xFFFF,
+			.type = 0x0020,
 			.read = true,
 			.write = false,
 			.notify = false,
@@ -94,10 +114,10 @@ void GATTServer::createTestServer()
 	// *******************************
 	// *       CHARACTERISTICS       *
 	// *******************************
-
+	// NOTE: Android doesn't like when char types are the same (for example 0xFFFF)!
 	{
 		AttributeData char1 = {
-			.type = 0xFFFF,
+			.type = 0x0011,
 			.read = true,
 			.write = false,
 		};
@@ -106,7 +126,7 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char2 = {
-			.type = 0xFFFF,
+			.type = 0x0012,
 			.read = false,
 			.write = true,
 		};
@@ -115,7 +135,7 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char3 = {
-			.type = 0xFFFF,
+			.type = 0x0021,
 			.read = true,
 			// .write = true,
 			.write = false,
@@ -125,12 +145,12 @@ void GATTServer::createTestServer()
 
 	{
 		AttributeData char4 = {
-			.type = 0xFFFF,
+			.type = 0x0028,
 			.read = true,
 			.write = true,
 			.notify = true,
 		};
-		createCharacteristic(0x0028, 0x0020, char4);
+		createCharacteristic(0x0028, 0x0020, char4, generateRandomData(300));
 	}
 }
 
@@ -311,6 +331,79 @@ DataBuffer GATTServer::readCharacteristics(AttHandle startHandle, AttHandle endH
 	{
 		throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
 	}
+
+	return buf;
+}
+
+DataBuffer GATTServer::readCharData(AttHandle handle)
+{
+	std::lock_guard lg(attLock);
+
+	if(!attributes.contains(handle))
+	{
+		LOG_ERROR("Don't have attribute with %04X handle", handle);
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	auto& attr = attributes[handle];
+	if(!attr->isCharstic())
+	{
+		LOG_ERROR("We support reading data only from characteristics!");
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	DataBuffer buf;
+	GATTCharacteristic& chstic = static_cast<GATTCharacteristic&>(*attr);
+
+	size_t maxLength = std::min(chstic.value.size(), (size_t)(ATT_MTU - 1));
+	if(maxLength > 0)
+	{
+		buf.insert(buf.begin(), chstic.value.begin(), chstic.value.begin() + maxLength);
+	}
+
+	return buf;
+}
+
+DataBuffer GATTServer::readCharBlobData(AttHandle handle, uint16_t offset)
+{
+	std::lock_guard lg(attLock);
+
+	if(!attributes.contains(handle))
+	{
+		LOG_ERROR("Don't have attribute with %04X handle", handle);
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	auto& attr = attributes[handle];
+	if(!attr->isCharstic())
+	{
+		LOG_ERROR("We support reading data only from characteristics!");
+		throw HandleError(AttErrorCodes::InvalidHandle, handle);
+	}
+
+	GATTCharacteristic& chstic = static_cast<GATTCharacteristic&>(*attr);
+	if(offset > chstic.value.size())
+	{
+		LOG_ERROR("Offset is greater than characteristic value size!");
+		throw HandleError(AttErrorCodes::InvalidOffset, handle); // TODO: Should it be Handle error or regular error? Not clear in doc
+	}
+
+	if(offset == chstic.value.size())
+	{
+		return {};
+	}
+
+	// TODO: Is really needed? Doc says error "may be" sent in this case. Maybe in future remove and handle properly
+	if(chstic.value.size() <= (ATT_MTU - 1))
+	{
+		LOG_ERROR("Attribute is not too long and can be read by read request");
+		throw HandleError(AttErrorCodes::AttributeNotLong, handle);
+	}
+
+	size_t maxLength = std::min(chstic.value.size() - offset, (size_t)(ATT_MTU - 1));
+
+	DataBuffer buf;
+	buf.insert(buf.begin(), chstic.value.begin() + offset, chstic.value.begin() + offset + maxLength);
 
 	return buf;
 }

@@ -197,6 +197,12 @@ DataBuffer ATTServer::processCommands(DataBuffer& data)
 			case ATT_FIND_INFORMATION_REQ:
 				return handleFindInfoReq(data);
 
+			case ATT_READ_REQ:
+				return handleReadReq(data);
+
+			case ATT_READ_BLOB_REQ:
+				return handleReadBlobReq(data);
+
 			default:
 				LOG_ERROR("Unknown opcode received: 0x%02X", opcode);
 				throw AttErrorCodes::RequestNotSupported;
@@ -359,8 +365,46 @@ DataBuffer ATTServer::handleFindInfoReq(DataBuffer& data)
 	LOG_DEBUG("    Start Handle: 0x%04X", startHandle);
 	LOG_DEBUG("    End Handle: 0x%04X", endHandle);
 
+	if(startHandle > endHandle || startHandle == 0x0000)
+	{
+		LOG_ERROR("Wrong handle range provided!");
+		throw HandleError(AttErrorCodes::InvalidHandle, startHandle);
+	}
+
 	// TODO: This is used for discovering descriptors. We do not support them for now
 	throw HandleError(AttErrorCodes::AttributeNotFound, startHandle);
+}
+
+DataBuffer ATTServer::handleReadReq(DataBuffer& data)
+{
+	LOG_DEBUG("Read request received");
+
+	AttHandle handle = toUINT16(data);
+
+	LOG_DEBUG("    Handle: 0x%04X", handle);
+
+	DataBuffer rsp;
+	rsp.push_back(ATT_READ_RSP);
+	appendMsgData(rsp, gatt.readCharData(handle), false);
+
+	return rsp;
+}
+
+DataBuffer ATTServer::handleReadBlobReq(DataBuffer& data)
+{
+	LOG_DEBUG("Read blob request received");
+
+	AttHandle handle = toUINT16(data);
+	uint16_t offset = toUINT16(data);
+
+	LOG_DEBUG("    Handle: 0x%04X", handle);
+	LOG_DEBUG("    Offset: %d", offset);
+
+	DataBuffer rsp;
+	rsp.push_back(ATT_READ_BLOB_RSP);
+	appendMsgData(rsp, gatt.readCharBlobData(handle, offset), false);
+
+	return rsp;
 }
 
 ATTServer::~ATTServer()
